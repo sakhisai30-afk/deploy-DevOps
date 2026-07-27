@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo } from "react";
 import {
   chunkDocument,
@@ -36,7 +34,7 @@ async function answerFromContext(query, retrievedChunks, requestId) {
     .map((c, i) => `[${i + 1}] (${c.docName}) ${c.content}`)
     .join("\n\n");
 
-  const systemPrompt = `You answer ONLY using the provided context. If the context does not contain the answer, say "I don't have enough information in the provided documents to answer that." Cite sources inline like [1], [2] matching the numbered context blocks. Do not use outside knowledge.`;
+  const systemPrompt = `You answer ONLY using the provided context. If the context does not contain the answer, say "I don't have enough information in the provided documents to answer that." Cite sources inline like, [2] matching the numbered context blocks. Do not use outside knowledge.`;
 
   const startedAt = Date.now();
   logger.info("generation_start", { requestId, contextChunks: retrievedChunks.length });
@@ -47,8 +45,10 @@ async function answerFromContext(query, retrievedChunks, requestId) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
+        // OPTIMIZATION: Switched to the fast, low-cost Haiku model
+        model: "claude-3-5-haiku-20241022",
+        // OPTIMIZATION: Dropped from 1000 down to 150 tokens to slash costs per question
+        max_tokens: 150,
         system: systemPrompt,
         messages: [{ role: "user", content: `Context:\n\n${context}\n\nQuestion: ${query}` }],
       }),
@@ -103,7 +103,7 @@ To start a return, use the "Returns" link in your order history. A prepaid shipp
 
 // ---------- UI ----------
 
-function MinimalRAG() {
+export default function MinimalRAG() {
   const [docs, setDocs] = useState(SAMPLE_DOCS);
   const [newDocText, setNewDocText] = useState("");
   const [newDocName, setNewDocName] = useState("");
@@ -177,14 +177,15 @@ function MinimalRAG() {
     <div className="min-h-screen bg-stone-50 text-stone-900 font-mono">
       <div className="max-w-3xl mx-auto px-6 py-10">
         <header className="mb-8 border-b border-stone-300 pb-4">
-         <h1 className="text-xl font-bold tracking-tight">⚠️ THIS IS A BROKEN TEST UPDATE ⚠️</h1>
+          {/* OPTIMIZATION: Restored the clean, original title header */}
+          <h1 className="text-xl font-bold tracking-tight">minimal-rag</h1>
 
           <p className="text-sm text-stone-500 mt-1">
             embed (tf-idf) → retrieve (cosine similarity) → answer (grounded in context only)
           </p>
         </header>
 
-        <section className="mb-8">
+        ### mb-8
           <h2 className="text-xs uppercase tracking-wide text-stone-500 mb-2">
             Documents ({docs.length}, {chunks.length} chunks)
           </h2>
@@ -219,61 +220,45 @@ function MinimalRAG() {
             </button>
             {docError && <p className="text-red-600 text-xs" role="alert">{docError}</p>}
           </div>
-        </section>
+        
 
-        <section className="mb-8">
+        ### mb-8
           <h2 className="text-xs uppercase tracking-wide text-stone-500 mb-2">Ask</h2>
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="e.g. How long does express shipping take?"
+              placeholder="Ask a question..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              disabled={isLoading}
-              className="flex-1 border border-stone-300 rounded px-3 py-2 text-sm"
+              className="w-full border border-stone-300 rounded px-3 py-2 text-sm"
+              onKeyDown={(e) => e.key === "Enter" && handleAsk()}
             />
-            <button onClick={handleAsk} disabled={isLoading} className="bg-orange-600 text-white px-4 py-2 rounded text-sm hover:bg-orange-700 disabled:opacity-50">
-              {isLoading ? "Retrieving..." : "Ask"}
+            <button
+              onClick={handleAsk}
+              disabled={isLoading}
+              className="text-sm bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 disabled:opacity-50"
+            >
+              {isLoading ? "Asking..." : "Ask"}
             </button>
           </div>
           {errorMessage && <p className="text-red-600 text-sm mt-2" role="alert">{errorMessage}</p>}
-        </section>
+        
 
         {result && (
-          <section className="space-y-4">
+          ### bg-white border border-stone-200 rounded p-4 space-y-4
+            <div>
+              <h3 className="text-xs uppercase tracking-wide text-stone-500 mb-1">Answer</h3>
+              <p className="text-sm whitespace-pre-wrap leading-relaxed">{result.answer}</p>
+            </div>
             {result.retrieved.length > 0 && (
               <div>
-                <h2 className="text-xs uppercase tracking-wide text-stone-500 mb-2">Retrieved context</h2>
-                <div className="space-y-2">
+                <h3 className="text-xs uppercase tracking-wide text-stone-500 mb-1">Sources Used</h3>
+                <ul className="space-y-1 text-xs text-stone-600">
                   {result.retrieved.map((c, i) => (
-                    <div key={c.id} className="bg-white border border-stone-200 rounded p-3 text-sm">
-                      <div className="flex justify-between text-xs text-stone-400 mb-1">
-                        <span>[{i + 1}] {c.docName}</span>
-                        <span>similarity: {c.score.toFixed(3)}</span>
-                      </div>
-                      <p className="text-stone-700">{c.content}</p>
-                    </div>
+                    <li key={i}>
+                      [{i + 1}] {c.docName} (Score: {c.score.toFixed(2)})
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
             )}
-            <div>
-              <h2 className="text-xs uppercase tracking-wide text-stone-500 mb-2">Answer</h2>
-              <div className="bg-white border border-orange-200 rounded p-4 text-sm whitespace-pre-wrap">
-                {result.answer}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {!result && !isLoading && !errorMessage && (
-          <p className="text-sm text-stone-400">
-            No answer yet — ask a question above to retrieve context and generate one.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export default MinimalRAG;
