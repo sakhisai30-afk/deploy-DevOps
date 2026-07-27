@@ -1,3 +1,5 @@
+throw new Error("Testing Automated Monitor Alerts");
+
 import React, { useState, useMemo } from "react";
 import {
   chunkDocument,
