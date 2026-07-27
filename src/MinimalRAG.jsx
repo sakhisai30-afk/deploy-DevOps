@@ -177,7 +177,8 @@ function MinimalRAG() {
     <div className="min-h-screen bg-stone-50 text-stone-900 font-mono">
       <div className="max-w-3xl mx-auto px-6 py-10">
         <header className="mb-8 border-b border-stone-300 pb-4">
-          <h1 className="text-xl font-bold tracking-tight">minimal-rag</h1>
+         <h1 className="text-xl font-bold tracking-tight">⚠️ THIS IS A BROKEN TEST UPDATE ⚠️</h1>
+
           <p className="text-sm text-stone-500 mt-1">
             embed (tf-idf) → retrieve (cosine similarity) → answer (grounded in context only)
           </p>
