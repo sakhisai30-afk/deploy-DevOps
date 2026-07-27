@@ -1,0 +1,11 @@
+# Environment variables (contains secrets — never commit)
+.env
+.env.local
+.env.*.local
+
+# Common additions
+node_modules/
+dist/
+.DS_Store
+dist/
+coverage/
