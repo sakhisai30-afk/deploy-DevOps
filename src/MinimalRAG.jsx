@@ -245,9 +245,8 @@ export default function MinimalRAG() {
         
 
         {result && (
-          ### bg-white border border-stone-200 rounded p-4 space-y-4
-            <div>
-              <h3 className="text-xs uppercase tracking-wide text-stone-500 mb-1">Answer</h3>
+  <div className="bg-white border border-stone-200 rounded p-4 space-y-4">
+    <h3 className="text-xs uppercase tracking-wide text-stone-500 mb-1">Answer</h3>
               <p className="text-sm whitespace-pre-wrap leading-relaxed">{result.answer}</p>
             </div>
             {result.retrieved.length > 0 && (
