@@ -25,33 +25,23 @@ function newRequestId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// ---------- ANSWER: call the model with retrieved context only ----------
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// ---------- ANSWER: call OUR OWN backend (/api/ask), never Anthropic directly ----------
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 async function answerFromContext(query, retrievedChunks, requestId) {
   const context = retrievedChunks
     .map((c, i) => `[${i + 1}] (${c.docName}) ${c.content}`)
     .join("\n\n");
 
-  const systemPrompt = `You answer ONLY using the provided context. If the context does not contain the answer, say "I don't have enough information in the provided documents to answer that." Cite sources inline like, [2] matching the numbered context blocks. Do not use outside knowledge.`;
-
   const startedAt = Date.now();
   logger.info("generation_start", { requestId, contextChunks: retrievedChunks.length });
 
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}/messages`, {
+    response = await fetch(`${API_BASE_URL}/api/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        // OPTIMIZATION: Switched to the fast, low-cost Haiku model
-        model: "claude-3-5-haiku-20241022",
-        // OPTIMIZATION: Dropped from 1000 down to 150 tokens to slash costs per question
-        max_tokens: 150,
-        system: systemPrompt,
-        messages: [{ role: "user", content: `Context:\n\n${context}\n\nQuestion: ${query}` }],
-      }),
+      body: JSON.stringify({ query, context }),
     });
   } catch (networkErr) {
     logger.error("generation_network_error", { requestId, message: networkErr.message });
@@ -64,9 +54,8 @@ async function answerFromContext(query, retrievedChunks, requestId) {
   }
 
   const data = await response.json();
-  const textBlock = data.content.find((block) => block.type === "text");
 
-  if (!textBlock || !textBlock.text.trim()) {
+  if (!data.answer || !data.answer.trim()) {
     logger.error("generation_empty_response", { requestId, durationMs: Date.now() - startedAt });
     throw new Error("EMPTY_RESPONSE");
   }
@@ -74,10 +63,10 @@ async function answerFromContext(query, retrievedChunks, requestId) {
   logger.info("generation_complete", {
     requestId,
     durationMs: Date.now() - startedAt,
-    answerChars: textBlock.text.length,
+    answerChars: data.answer.length,
   });
 
-  return textBlock.text;
+  return data.answer;
 }
 
 // ---------- Sample docs ----------
@@ -177,15 +166,13 @@ export default function MinimalRAG() {
     <div className="min-h-screen bg-stone-50 text-stone-900 font-mono">
       <div className="max-w-3xl mx-auto px-6 py-10">
         <header className="mb-8 border-b border-stone-300 pb-4">
-          {/* OPTIMIZATION: Restored the clean, original title header */}
           <h1 className="text-xl font-bold tracking-tight">minimal-rag</h1>
-
           <p className="text-sm text-stone-500 mt-1">
             embed (tf-idf) → retrieve (cosine similarity) → answer (grounded in context only)
           </p>
         </header>
 
-        ### mb-8
+        <section className="mb-8">
           <h2 className="text-xs uppercase tracking-wide text-stone-500 mb-2">
             Documents ({docs.length}, {chunks.length} chunks)
           </h2>
@@ -220,9 +207,9 @@ export default function MinimalRAG() {
             </button>
             {docError && <p className="text-red-600 text-xs" role="alert">{docError}</p>}
           </div>
-        
+        </section>
 
-        ### mb-8
+        <section className="mb-8">
           <h2 className="text-xs uppercase tracking-wide text-stone-500 mb-2">Ask</h2>
           <div className="flex gap-2">
             <input
@@ -230,6 +217,7 @@ export default function MinimalRAG() {
               placeholder="Ask a question..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              disabled={isLoading}
               className="w-full border border-stone-300 rounded px-3 py-2 text-sm"
               onKeyDown={(e) => e.key === "Enter" && handleAsk()}
             />
@@ -242,33 +230,42 @@ export default function MinimalRAG() {
             </button>
           </div>
           {errorMessage && <p className="text-red-600 text-sm mt-2" role="alert">{errorMessage}</p>}
-        
+        </section>
 
-  {result && (
-  <div className="bg-white border border-stone-200 rounded p-4 space-y-4">
-    <div>
-      <h3 className="text-xs uppercase tracking-wide text-stone-500 mb-1">
-        Answer
-      </h3>
-      <p className="text-sm whitespace-pre-wrap leading-relaxed">
-        {result.answer}
-      </p>
-    </div>
+        {result && (
+          <div className="bg-white border border-stone-200 rounded p-4 space-y-4">
+            <div>
+              <h3 className="text-xs uppercase tracking-wide text-stone-500 mb-1">
+                Answer
+              </h3>
+              <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                {result.answer}
+              </p>
+            </div>
 
-    {result.retrieved.length > 0 && (
-      <div>
-        <h3 className="text-xs uppercase tracking-wide text-stone-500 mb-1">
-          Sources Used
-        </h3>
+            {result.retrieved.length > 0 && (
+              <div>
+                <h3 className="text-xs uppercase tracking-wide text-stone-500 mb-1">
+                  Sources Used
+                </h3>
+                <ul className="space-y-1 text-xs text-stone-600">
+                  {result.retrieved.map((c, i) => (
+                    <li key={i}>
+                      [{i + 1}] {c.docName} (score: {c.score.toFixed(2)})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
-        <ul className="space-y-1 text-xs text-stone-600">
-          {result.retrieved.map((c, i) => (
-            <li key={i}>
-              [{i + 1}] {c.docName} (score: {c.score.toFixed(2)})
-            </li>
-          ))}
-        </ul>
+        {!result && !isLoading && !errorMessage && (
+          <p className="text-sm text-stone-400">
+            No answer yet — ask a question above to retrieve context and generate one.
+          </p>
+        )}
       </div>
-    )}
-  </div>
-)}
+    </div>
+  );
+}
