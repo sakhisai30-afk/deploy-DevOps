@@ -244,20 +244,31 @@ export default function MinimalRAG() {
           {errorMessage && <p className="text-red-600 text-sm mt-2" role="alert">{errorMessage}</p>}
         
 
-        {result && (
+  {result && (
   <div className="bg-white border border-stone-200 rounded p-4 space-y-4">
-    <h3 className="text-xs uppercase tracking-wide text-stone-500 mb-1">Answer</h3>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed">{result.answer}</p>
-            </div>
-            {result.retrieved.length > 0 && (
-              <div>
-                <h3 className="text-xs uppercase tracking-wide text-stone-500 mb-1">Sources Used</h3>
-                <ul className="space-y-1 text-xs text-stone-600">
-                  {result.retrieved.map((c, i) => (
-                    <li key={i}>
-                      [{i + 1}] {c.docName} (Score: {c.score.toFixed(2)})
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+    <div>
+      <h3 className="text-xs uppercase tracking-wide text-stone-500 mb-1">
+        Answer
+      </h3>
+      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+        {result.answer}
+      </p>
+    </div>
+
+    {result.retrieved.length > 0 && (
+      <div>
+        <h3 className="text-xs uppercase tracking-wide text-stone-500 mb-1">
+          Sources Used
+        </h3>
+
+        <ul className="space-y-1 text-xs text-stone-600">
+          {result.retrieved.map((c, i) => (
+            <li key={i}>
+              [{i + 1}] {c.docName} (score: {c.score.toFixed(2)})
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </div>
+)}
